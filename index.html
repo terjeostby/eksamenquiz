@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz for Eksamen</title>
+  <style>
+    :root {
+      --bg: #f7f9fc;
+      --text: #222;
+      --card-bg: #fff;
+      --button-bg: #004894;
+      --button-text: #fff;
+      --button-hover: #0056b3;
+      --shadow: rgba(0,0,0,0.08);
+    }
+    html { overflow-y: scroll; }
+    body.dark-mode {
+      --bg: #1e1e1e;
+      --text: #eee;
+      --card-bg: #2e2e2e;
+      --button-bg: #555;
+      --button-text: #fff;
+      --button-hover: #666;
+      --shadow: rgba(0,0,0,0.5);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      max-width: 700px;
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 25px var(--shadow);
+      transition: background 0.3s, color 0.3s;
+       }
+    #infoButton, #darkToggle {
+      background: var(--button-bg);
+      color: var(--button-text);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+      font-size: clamp(14px,3vw,16px);
+    }
+    #infoButton:hover, #darkToggle:hover { background: var(--button-hover); }
+    #mainContent { overflow: hidden; display: block; }
+    #infoOverlay {
+      position: relative;
+      display: none;
+      background: var(--card-bg);
+      color: var(--text);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 25px var(--shadow);
+    }
+    #infoOverlay h2 { margin-top: 0; }
+    #closeInfo {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: transparent;
+      color: var(--button-bg);
+      border: none;
+      padding: 0;
+      font-size: 24px;
+      cursor: pointer;
+      transition: color 0.3s;
+    }
+    #closeInfo:hover { color: var(--button-hover); }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .controls label { font-size: clamp(16px,4vw,18px); }
+    select, input[type="file"] {
+      width: 100%;
+      font-size: clamp(16px,4vw,18px);
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button.primary {
+      font-size: clamp(16px,4vw,18px);
+      width:100%; padding:10px;
+      margin-top:10px;
+      border-radius:6px; border:none;
+      background: var(--button-bg);
+      color: var(--button-text);
+      transition:background 0.3s;
+    }
+    button.primary:hover { background: var(--button-hover); }
+    .question { font-size: clamp(18px,5vw,22px); margin:25px 0 15px; }
+    .option { display:block; width:100%; text-align:left; padding:12px; margin:10px 0; border:1px solid #ccc; border-radius:6px; background: var(--card-bg); color: var(--text); transition: background 0.2s; font-size: clamp(16px,4vw,18px); }
+    .option:hover { background: #ddd; }
+    body.dark-mode .option:hover { color: #000; }
+    .option:disabled { opacity:0.6; cursor: default; }
+    #feedback, #score, #progress { text-align:center; margin-top:20px; font-size: clamp(16px,4vw,18px); }
+    #feedback strong { display:block; }
+    .flashcard {
+      perspective:1000px;
+      width:100%; max-width:400px;
+      height:400px;
+      margin:40px auto;
+      position:relative;
+      touch-action:pan-y;
+      /* clip inner card during slide */
+      overflow: visible;
+    }
+    .flashcard-inner {
+      width:100%; height:100%;
+      position:absolute; top:0; left:0;
+      border-radius:20px;
+      transform-style:preserve-3d;
+      transition:transform 0.6s ease;
+    }
+    .flipped .flashcard-inner { transform:rotateY(180deg); }
+    .flashcard-front, .flashcard-back {
+      position:absolute; width:100%; height:100%;
+      backface-visibility:hidden;
+      display:flex; align-items:center; justify-content:center;
+      padding:30px;
+      background: var(--card-bg);
+      color: var(--text);
+      box-shadow: 0 6px 20px var(--shadow);
+      overflow-wrap:break-word;
+      font-size: clamp(18px,5vw,22px);
+      border-radius:20px;
+    }
+    .flashcard-back { transform:rotateY(180deg); font-style:italic; }
+    .flashcard-controls { display:flex; justify-content:space-between; align-items:center; margin-top:30px; }
+    .flashcard-controls button { background:none; border:none; color: var(--button-bg); font-size:2.5rem; }
+    #flashcard-progress { flex:1; text-align:center; font-size: clamp(16px,4vw,18px); }
+    @keyframes slideOutLeft { from{transform:translateX(0);} to{transform:translateX(-100%);} }
+    @keyframes slideInRight { from{transform:translateX(100%);} to{transform:translateX(0);} }
+    @keyframes slideOutRight { from{transform:translateX(0);} to{transform:translateX(100%);} }
+    @keyframes slideInLeft { from{transform:translateX(-100%);} to{transform:translateX(0);} }
+    .slide-out-left { animation: slideOutLeft 0.2s forwards; }
+    .slide-in-right { animation: slideInRight 0.2s forwards; }
+    .slide-out-right { animation: slideOutRight 0.2s forwards; }
+    .slide-in-left { animation: slideInLeft 0.2s forwards; }
+  </style>
+</head>
+<body>
+  <div id="topBar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <button id="infoButton">Info</button>
+    <button id="darkToggle">Dark Mode</button>
+  </div>
+  <div id="mainContent">
+    <h1>Quiz for Eksamen</h1>
+    <div class="controls">
+      <label for="fileInput">Last opp quiz-filer (.txt):</label>
+      <input type="file" id="fileInput" accept=".txt" multiple>
+      <label for="temaSelect">Velg tema:</label>
+      <select id="temaSelect"><option value="" disabled selected>Ingen quiz valgt</option></select>
+    </div>
+    <button class="primary" id="startQuiz">Start quiz</button>
+    <button class="primary" id="startFlash">Flashcards</button>
+
+    <div id="quiz-container" style="display:none;">
+      <div id="progress"></div>
+      <div class="question" id="question"></div>
+      <div id="options"></div>
+      <div id="feedback"></div>
+      <button class="primary" id="nextBtn" style="visibility:hidden;">Neste</button>
+    </div>
+
+    <div id="flashcard-container" style="display:none;">
+      <div class="flashcard">
+        <div class="flashcard-inner">
+          <div class="flashcard-front" id="flashcard-question"></div>
+          <div class="flashcard-back" id="flashcard-answer"></div>
+        </div>
+      </div>
+      <div class="flashcard-controls">
+        <button id="prevBtn">←</button>
+        <div id="flashcard-progress"></div>
+        <button id="nextBtnFlash">→</button>
+      </div>
+    </div>
+
+    <div id="score"></div>
+  </div>
+
+  <div id="infoOverlay">
+    <button id="closeInfo">✖</button>
+    <h2>Hvordan bruke quiz-verktøyet</h2>
+    <p>Dette verktøyet lar deg <strong>laste opp én eller flere quiz-filer</strong> i <code>.txt</code>-format med UTF-8-koding.</p>
+    <h3>Filformat</h3>
+    <p>Hver spørsmålsfil må følge dette eksakte formatet (6 linjer per spørsmål, uten tomme linjer mellom):</p>
+    <pre>
+Spørsmålstekst
+Svaralternativ 1
+Svaralternativ 2
+Svaralternativ 3
+Svaralternativ 4
+Riktig svar (0–3)
+    </pre>
+    <p>Eksempel:</p>
+    <pre>
+Hva brukes en transformator til?
+Å lagre energi
+Å konvertere elektrisk energi til varme
+Å endre spenningen i en krets
+Å produsere strøm
+2
+    </pre>
+    <h3>Kom i gang</h3>
+    <ol>
+      <li>Klikk <em>Last opp quiz-filer</em> og velg én eller flere <code>.txt</code>-filer.</li>
+      <li>Velg ønsket tema fra rullegardinmenyen.</li>
+      <li>Klikk <em>Start quiz</em> eller <em>Flashcards</em> for å begynne.</li>
+      <li>Du kan navigere med museklikk, piltaster og mellomrom.</li>
+    </ol>
+    <h3>Tips</h3>
+    <p>Spør gjerne en chatbot om å <strong>generere quiz-spørsmål</strong> for deg. Bare be om et sett spørsmål i beskrevet format, last ned som tekst, og last opp her!</p>
+  </div>
+
+  <script>
+    // Dark mode toggle
+    document.getElementById('darkToggle').addEventListener('click', () => {
+      const dark = document.body.classList.toggle('dark-mode');
+      document.getElementById('darkToggle').textContent = dark ? 'Light Mode' : 'Dark Mode';
+      localStorage.setItem('darkMode', dark);
+    });
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.body.classList.add('dark-mode');
+      document.getElementById('darkToggle').textContent = 'Light Mode';
+    }
+
+    // Info overlay controls
+    const infoButton = document.getElementById('infoButton');
+    const mainContent = document.getElementById('mainContent');
+    const infoOverlay = document.getElementById('infoOverlay');
+    infoButton.addEventListener('click', () => {
+      // Toggle overlay
+      if (mainContent.style.display !== 'none') {
+        mainContent.style.display = 'none';
+        infoOverlay.style.display = 'block';
+      } else {
+        infoOverlay.style.display = 'none';
+        mainContent.style.display = 'block';
+      }
+    });
+    document.getElementById('closeInfo').addEventListener('click', () => {
+      infoOverlay.style.display = 'none';
+      mainContent.style.display = 'block';
+    });('click', () => {
+      document.getElementById('infoOverlay').style.display = 'none';
+      document.getElementById('mainContent').style.display = 'block';
+    });
+
+    // Utilities
+    let canProceed = false;
+    const shuffleArray = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+    const shuffleQuestionOptions = q => { const orig = q.options.map((o, i) => ({ o, i })); const sh = shuffleArray(orig); q.options = sh.map(x => x.o); q.answer = sh.find(x => x.i === q.answer).i; return q; };
+
+    // State
+    let quizSets = [], questions = [], current = 0, score = 0, flashcardMode = false;
+    const fileInput = document.getElementById('fileInput');
+    const temaSelect = document.getElementById('temaSelect');
+    const quizContainer = document.getElementById('quiz-container');
+    const flashContainer = document.getElementById('flashcard-container');
+    const cardEl = document.querySelector('.flashcard');
+    const innerEl = cardEl.querySelector('.flashcard-inner');
+
+    // File upload handling
+    fileInput.addEventListener('change', e => {
+      const placeholder = temaSelect.querySelector('option[value=""]'); if (placeholder) placeholder.remove();
+      Array.from(e.target.files).forEach(file => {
+        const reader = new FileReader(); reader.onload = () => {
+          const lines = reader.result.split('\n').map(l => l.trim()).filter(Boolean);
+          if (lines.length % 6 !== 0) { alert(`Ugyldig format: ${file.name}`); return; }
+          const qs = [];
+          for (let i = 0; i < lines.length; i += 6) {
+            qs.push(shuffleQuestionOptions({ question: lines[i], options: [lines[i+1], lines[i+2], lines[i+3], lines[i+4]], answer: parseInt(lines[i+5], 10) }));
+          }
+          const name = file.name.replace(/\.txt$/i, '');
+          if (!quizSets.find(q => q.name === name)) { quizSets.push({ name, questions: qs }); const opt = document.createElement('option'); opt.value = name; opt.textContent = name; temaSelect.appendChild(opt); temaSelect.value = name; }
+        };
+        reader.readAsText(file, 'UTF-8');
+      }); e.target.value = '';
+    });
+
+    // Start handlers
+    document.getElementById('startQuiz').addEventListener('click', () => start(false));
+    document.getElementById('startFlash').addEventListener('click', () => start(true));
+
+    function start(asFlash) {
+      flashcardMode = asFlash;
+      const set = quizSets.find(q => q.name === temaSelect.value);
+      if (!set) return alert('Velg en quiz først');
+      questions = shuffleArray(set.questions.map(q => ({ question: q.question, options: [...q.options], answer: q.answer })));
+      current = 0; score = 0;
+      document.getElementById('score').textContent = '';
+      quizContainer.style.display = asFlash ? 'none' : 'block';
+      flashContainer.style.display = asFlash ? 'block' : 'none';
+      if (asFlash) showFlash(); else showQ();
+    }
+
+    // Quiz functions
+    const optionsDiv = document.getElementById('options');
+    function showQ() {
+      canProceed = false;
+      const q = questions[current];
+      document.getElementById('question').textContent = q.question;
+      document.getElementById('progress').textContent = `Spørsmål ${current+1} av ${questions.length}`;
+      document.getElementById('feedback').innerHTML = '';
+      document.getElementById('nextBtn').style.visibility = 'hidden';
+      optionsDiv.innerHTML = '';
+      q.options.forEach((opt,i) => { const btn = document.createElement('button'); btn.textContent = opt; btn.className = 'option'; btn.onclick = () => select(i); optionsDiv.appendChild(btn); });
+    }
+    function select(i) {
+      canProceed = true;
+      const q = questions[current];
+      const fb = document.getElementById('feedback');
+      if (i === q.answer) { fb.innerHTML = `<strong style="color:green;">Riktig!</strong>`; score++; }
+      else { fb.innerHTML = `<strong style="color:red;">Feil! Riktig svar var: ${q.options[q.answer]}</strong>`; }
+      document.querySelectorAll('.option').forEach(b => b.disabled = true);
+      document.getElementById('nextBtn').style.visibility = 'visible';
+    }
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      if (!canProceed) return;
+      current++;
+      if (current < questions.length) showQ(); else { quizContainer.style.display = 'none'; document.getElementById('score').textContent = `Du fikk ${score} av ${questions.length}`; }
+    });
+
+    // Flashcard functions
+    function showFlashcardContent(){ cardEl.style.transition='none'; cardEl.classList.remove('flipped'); cardEl.offsetHeight; cardEl.style.transition='transform 0.6s ease'; const q=questions[current]; document.getElementById('flashcard-question').textContent=q.question; document.getElementById('flashcard-answer').textContent=q.options[q.answer]; document.getElementById('flashcard-progress').textContent=`Kort ${current+1} av ${questions.length}`; document.getElementById('prevBtn').style.visibility=current===0?'hidden':'visible'; document.getElementById('nextBtnFlash').style.visibility=current===questions.length-1?'hidden':'visible'; }
+    function animateSlide(dir,cb){ cardEl.style.transition='none'; cardEl.classList.remove('flipped'); cardEl.offsetHeight; cardEl.style.transition='transform 0.6s ease'; const out=dir==='next'?'slide-out-left':'slide-out-right'; const inn=dir==='next'?'slide-in-right':'slide-in-left'; cardEl.classList.add(out); cardEl.addEventListener('animationend',function h(){ cardEl.removeEventListener('animationend',h); cardEl.classList.remove(out); cb(); cardEl.classList.add(inn); cardEl.addEventListener('animationend',function h2(){ cardEl.removeEventListener('animationend',h2); cardEl.classList.remove(inn); }); }); }
+    function navigateFlash(dir){ if(dir==='next'&&current<questions.length-1) animateSlide('next',()=>{ current++; showFlashcardContent(); }); if(dir==='prev'&&current>0) animateSlide('prev',()=>{ current--; showFlashcardContent(); }); }
+
+    document.addEventListener('DOMContentLoaded',()=>{ document.addEventListener('keydown',e=>{ if(flashcardMode){ if(e.key==='ArrowRight'){ e.preventDefault();navigateFlash('next'); } if(e.key==='ArrowLeft'){ e.preventDefault();navigateFlash('prev'); } if(e.key===' '||e.key==='Spacebar'){ e.preventDefault();cardEl.classList.toggle('flipped'); } } else { if(e.key===' '||e.key==='Spacebar'){ e.preventDefault(); if(document.getElementById('nextBtn').style.display!=='none') nextQuestion(); } } }); cardEl.addEventListener('click',()=>{ if(flashcardMode) cardEl.classList.toggle('flipped'); }); let startX=0; cardEl.addEventListener('touchstart',e=>startX=e.changedTouches[0].screenX); cardEl.addEventListener('touchend',e=>{ const dx=e.changedTouches[0].screenX-startX; if(flashcardMode&&Math.abs(dx)>50) navigateFlash(dx<0?'next':'prev'); }); });
+  </script>
+</body>
+</html>
